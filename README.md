@@ -2,7 +2,7 @@
 ![image](https://github.com/user-attachments/assets/1822e2ab-ea82-4f7b-92ab-e6ba6161cf22)
 
 ## install
-1. [こちら](https://github.com/neon-57/hello_app/archive/refs/heads/main.zip)からZIPファイルをダウンロードまたは、このリポジトリをZIPでダウンロード
+1. [こちら](https://github.com/neon-57/chrome-freee-time/archive/refs/heads/main.zip)からZIPファイルをダウンロードまたは、このリポジトリをZIPでダウンロード
 2. ZIPを解凍します。
 3. Chromeで[chrome://extensions/](chrome://extensions/)にアクセス
 4. `デベロッパーモード`をONにします。
