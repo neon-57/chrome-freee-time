@@ -1,4 +1,6 @@
 # Freeeの勤務時間を確認するChromeの拡張機能です。
+![image](https://github.com/user-attachments/assets/1822e2ab-ea82-4f7b-92ab-e6ba6161cf22)
+
 ## install
 1. [こちら](https://github.com/neon-57/hello_app/archive/refs/heads/main.zip)からZIPファイルをダウンロードまたは、このリポジトリをZIPでダウンロード
 2. ZIPを解凍します。
@@ -19,4 +21,5 @@
 | **休憩時間** | 休憩時間の合計 |
 | **実労働時間** | 総勤務時間 － 休憩時間 |
 
-![alt text](image.png)
+![image](https://github.com/user-attachments/assets/e96f1b8a-a0cc-4da0-a7b7-0ed996bba442)
+
