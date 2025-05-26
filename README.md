@@ -4,7 +4,7 @@
 ## install
 1. [こちら](https://github.com/neon-57/chrome-freee-time/archive/refs/heads/main.zip)からZIPファイルをダウンロードまたは、このリポジトリをZIPでダウンロード
 2. ZIPを解凍します。
-3. Chromeで[chrome://extensions/](chrome://extensions/)にアクセス
+3. Chromeで`chrome://extensions/`にアクセス
 4. `デベロッパーモード`をONにします。
 5. `パッケージ化されていない拡張機能を読み込む`をクリックし、解凍したフォルダを選択します。
 6. すでに Freee を開いていた場合は、ページをリロードしてください。
