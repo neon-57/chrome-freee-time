@@ -1,4 +1,4 @@
-# Freeeの勤務時間を確認するChromeの拡張機能です。
+# freeeの勤務時間を確認するChromeの拡張機能です。
 ![image](https://github.com/user-attachments/assets/1822e2ab-ea82-4f7b-92ab-e6ba6161cf22)
 
 ## install
