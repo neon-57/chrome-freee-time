@@ -1,0 +1,14 @@
+{
+  "manifest_version": 3,
+  "name": "Chrome Freee Time",
+  "version": "1.0",
+  "description": "",
+  "permissions": [
+  ],
+  "content_scripts": [
+    {
+      "matches": ["https://p.secure.freee.co.jp/*"],
+      "js": ["src/content.js"]
+    }
+  ]
+}
