@@ -1,16 +1,110 @@
 // ダイアログが表示されたら勤怠時間を計算して表示する
 function observeDialogAppearance() {
     let isProcessing = false;
-    let processingTimeout = null;
+    let mutationThrottleTimeout = null;
     let dialogWasVisible = false; // ダイアログの表示状態を記録するフラグ
+    let updateIntervalId = null; // ダイアログ表示中の定期更新タイマー
+    let processScheduleTimeout = null;
+    let pendingRun = false;
+    const inputListeners = new Map();
+
+    const scheduleProcessTimeRecords = (delay = 0) => {
+        if (processScheduleTimeout !== null) {
+            clearTimeout(processScheduleTimeout);
+        }
+        processScheduleTimeout = setTimeout(() => {
+            processScheduleTimeout = null;
+            runProcessTimeRecords();
+        }, delay);
+    };
+
+    const startRealtimeUpdates = () => {
+        if (updateIntervalId !== null) return;
+        updateIntervalId = setInterval(() => {
+            if (!dialogWasVisible) return;
+            scheduleProcessTimeRecords();
+        }, 1000);
+    };
+
+    const stopRealtimeUpdates = () => {
+        if (updateIntervalId !== null) {
+            clearInterval(updateIntervalId);
+            updateIntervalId = null;
+        }
+
+        if (processScheduleTimeout !== null) {
+            clearTimeout(processScheduleTimeout);
+            processScheduleTimeout = null;
+        }
+
+        pendingRun = false;
+    };
+
+    const runProcessTimeRecords = () => {
+        if (isProcessing) {
+            pendingRun = true;
+            return;
+        }
+        isProcessing = true;
+        pendingRun = false;
+        try {
+            processTimeRecords();
+        } finally {
+            isProcessing = false;
+            if (pendingRun) {
+                pendingRun = false;
+                scheduleProcessTimeRecords();
+            }
+        }
+    };
+
+    const detachRealtimeListeners = () => {
+        for (const [input, handler] of inputListeners.entries()) {
+            input.removeEventListener('input', handler);
+            input.removeEventListener('change', handler);
+        }
+        inputListeners.clear();
+    };
+
+    const attachRealtimeListeners = (dialog) => {
+        const inputs = dialog.querySelectorAll('.vb-tableListCell__text input');
+        const existingInputs = new Set();
+        let newListenerAdded = false;
+
+        inputs.forEach((input) => {
+            existingInputs.add(input);
+            if (inputListeners.has(input)) return;
+
+            const handler = () => {
+                scheduleProcessTimeRecords();
+            };
+
+            input.addEventListener('input', handler);
+            input.addEventListener('change', handler);
+            inputListeners.set(input, handler);
+            newListenerAdded = true;
+        });
+
+        for (const [input, handler] of inputListeners.entries()) {
+            if (existingInputs.has(input)) continue;
+            input.removeEventListener('input', handler);
+            input.removeEventListener('change', handler);
+            inputListeners.delete(input);
+        }
+
+        if (newListenerAdded) {
+            scheduleProcessTimeRecords();
+        }
+    };
 
     const observer = new MutationObserver(() => {
         // 処理中なら新しい変更は無視
         if (isProcessing) return;
 
         // スロットリングによる過剰な処理防止
-        clearTimeout(processingTimeout);
-        processingTimeout = setTimeout(() => {
+        clearTimeout(mutationThrottleTimeout);
+        mutationThrottleTimeout = setTimeout(() => {
+            mutationThrottleTimeout = null;
             const dialog = document.querySelector('.vb-dialogBase.vb-dialogBase--paddingZero');
 
             // ダイアログの表示状態変化を検出
@@ -18,16 +112,19 @@ function observeDialogAppearance() {
 
             // 新しくダイアログが表示された場合のみ処理を実行
             if (dialogIsVisible && !dialogWasVisible) {
-                isProcessing = true;
                 dialogWasVisible = true;
 
                 // 時間記録と表示の処理
-                processTimeRecords();
-
-                isProcessing = false;
+                attachRealtimeListeners(dialog);
+                runProcessTimeRecords();
+                startRealtimeUpdates();
             } else if (!dialogIsVisible && dialogWasVisible) {
                 // ダイアログが非表示になったらフラグをリセット
                 dialogWasVisible = false;
+                stopRealtimeUpdates();
+                detachRealtimeListeners();
+            } else if (dialogIsVisible) {
+                attachRealtimeListeners(dialog);
             }
         }, 200);
     });
