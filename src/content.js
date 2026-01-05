@@ -51,6 +51,16 @@ function observeDialogAppearance() {
                 return `${hours.toString().padStart(2, '0')}:${mins.toString().padStart(2, '0')}`;
             }
 
+            // 5分単位で切り捨て（休憩開始用）
+            function roundDownTo5Minutes(minutes) {
+                return Math.floor(minutes / 5) * 5;
+            }
+
+            // 5分単位で切り上げ（休憩終了用）
+            function roundUpTo5Minutes(minutes) {
+                return Math.ceil(minutes / 5) * 5;
+            }
+
             // 現在時刻を分に変換
             const now = new Date();
             const currentMinutes = now.getHours() * 60 + now.getMinutes();
@@ -86,13 +96,13 @@ function observeDialogAppearance() {
             const endMinutes = endTime ? timeToMinutes(endTime) : currentMinutes;
             const totalWorkMinutes = endMinutes - startMinutes;
 
-            // 休憩時間の計算
+            // 休憩時間の計算（5分単位で丸め）
             let totalBreakMinutes = 0;
             for (let i = 0; i < breakStartTimes.length; i++) {
-                const breakStart = timeToMinutes(breakStartTimes[i]);
+                const breakStart = roundDownTo5Minutes(timeToMinutes(breakStartTimes[i]));
                 const breakEnd = (i < breakEndTimes.length) ?
-                    timeToMinutes(breakEndTimes[i]) :
-                    currentMinutes;
+                    roundUpTo5Minutes(timeToMinutes(breakEndTimes[i])) :
+                    roundUpTo5Minutes(currentMinutes);
                 totalBreakMinutes += (breakEnd - breakStart);
             }
 
