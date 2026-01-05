@@ -14,7 +14,7 @@
 1. Chromeで`chrome://extensions/`にアクセス
 2. `Chrome Freee Time`を削除
 3. 古い`Chrome Freee Time`のファイルを削除
-4. [インストール](https://github.com/neon-57/chrome-freee-time?tab=readme-ov-file#install)を再度行う
+4. [インストール](https://github.com/neon-57/chrome-freee-time?tab=readme-ov-file#インストール)を再度行う
 
 ## 使い方
 
