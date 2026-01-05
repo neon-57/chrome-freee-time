@@ -1,13 +1,20 @@
 # freeeの勤務時間を確認するChromeの拡張機能です。
 ![image](https://github.com/user-attachments/assets/1822e2ab-ea82-4f7b-92ab-e6ba6161cf22)
 
-## install
+## インストール
 1. [こちら](https://github.com/neon-57/chrome-freee-time/archive/refs/heads/main.zip)からZIPファイルをダウンロードまたは、このリポジトリをZIPでダウンロード
 2. ZIPを解凍します。
-3. Chromeで`chrome://extensions/`にアクセス
+3. Chromeで`chrome://extensions/`にアクセスします。
 4. `デベロッパーモード`をONにします。
 5. `パッケージ化されていない拡張機能を読み込む`をクリックし、解凍したフォルダを選択します。
 6. すでに Freee を開いていた場合は、ページをリロードしてください。
+
+## 更新・再インストール
+更新・もしくは再インストールする場合は以下の手順で更新できます。
+1. Chromeで`chrome://extensions/`にアクセス
+2. `Chrome Freee Time`を削除
+3. 古い`Chrome Freee Time`のファイルを削除
+4. [インストール](https://github.com/neon-57/chrome-freee-time?tab=readme-ov-file#install)を再度行う
 
 ## 使い方
 
