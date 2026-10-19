@@ -1,41 +1,27 @@
 // ダイアログが表示されたら勤怠時間を計算して表示する
 function observeDialogAppearance() {
-    let isProcessing = false;
     let processingTimeout = null;
-    let dialogWasVisible = false; // ダイアログの表示状態を記録するフラグ
+    // freeeのCSS Modules移行後も、互換用の属性で同じ要素を取得する。
+    const dialogSelector = '.vb-dialogBase, [data-deprecated-class~="vb-dialogBase"]';
+    const bodySelector = '.vb-taskDialog__body, [data-deprecated-class~="vb-taskDialog__body"]';
 
-    const observer = new MutationObserver(() => {
-        // 処理中なら新しい変更は無視
-        if (isProcessing) return;
-
-        // スロットリングによる過剰な処理防止
+    function scheduleUpdate() {
         clearTimeout(processingTimeout);
         processingTimeout = setTimeout(() => {
-            const dialog = document.querySelector('.vb-dialogBase.vb-dialogBase--paddingZero');
-
-            // ダイアログの表示状態変化を検出
-            const dialogIsVisible = !!dialog;
-
-            // 新しくダイアログが表示された場合のみ処理を実行
-            if (dialogIsVisible && !dialogWasVisible) {
-                isProcessing = true;
-                dialogWasVisible = true;
-
-                // 時間記録と表示の処理
-                processTimeRecords();
-
-                isProcessing = false;
-            } else if (!dialogIsVisible && dialogWasVisible) {
-                // ダイアログが非表示になったらフラグをリセット
-                dialogWasVisible = false;
+            for (const dialog of document.querySelectorAll(dialogSelector)) {
+                processTimeRecords(dialog);
             }
         }, 200);
-    });
+    }
+
+    const observer = new MutationObserver(scheduleUpdate);
 
     // 時間を計算して表示する関数
-    function processTimeRecords() {
+    function processTimeRecords(dialog) {
         try {
-            const texts = document.querySelectorAll('.vb-tableListRow .vb-tableListCell__text');
+            const taskDialog = dialog.querySelector(bodySelector);
+            if (!taskDialog) return;
+            const existingTag = taskDialog.querySelector('.time-display-tag');
 
             // 時間文字列（HH:mm）を分に変換する関数
             function timeToMinutes(timeStr) {
@@ -71,12 +57,21 @@ function observeDialogAppearance() {
             let breakStartTimes = [];
             let breakEndTimes = [];
 
-            for (let i = 0; i < texts.length; i += 4) {
-                const text = texts[i].textContent;
-                const timeInput = texts[i + 2].querySelector("input");
+            // 行ごとに読み取り、ダイアログ外の表や変更理由の入力を混ぜない。
+            for (const row of taskDialog.querySelectorAll('tbody tr')) {
+                const cells = row.querySelectorAll('td');
+                const text = cells[0]?.textContent.trim();
+                const timeInput = row.querySelector('input[name^="time_clocks["][name$=".datetime"]')
+                    || cells[2]?.querySelector('input');
                 if (!timeInput) continue;
 
-                const time = timeInput.value;
+                const time = timeInput.value.trim();
+                if (!['出勤', '退勤', '休憩開始', '休憩終了'].includes(text)) continue;
+                // 編集途中の値からNaNや不正な集計を表示しない。
+                if (!/^\d{1,2}:[0-5]\d$/.test(time)) {
+                    existingTag?.remove();
+                    return;
+                }
 
                 if (text === "出勤") {
                     startTime = time;
@@ -90,7 +85,10 @@ function observeDialogAppearance() {
             }
 
             // 勤務時間の計算
-            if (!startTime) return; // 出勤記録がなければ何もしない
+            if (!startTime) {
+                existingTag?.remove();
+                return;
+            }
 
             const startMinutes = timeToMinutes(startTime);
             const endMinutes = endTime ? timeToMinutes(endTime) : currentMinutes;
@@ -123,13 +121,10 @@ function observeDialogAppearance() {
             }
 
             // 表示処理
-            const taskDialog = document.querySelector('.vb-taskDialog__body');
-            if (!taskDialog) return;
-
-            // 既存のタグを削除
-            const existingTag = taskDialog.querySelector('.time-display-tag');
+            // 同じ内容は書き直さず、自身のDOM更新による監視ループを防ぐ。
             if (existingTag) {
-                existingTag.remove();
+                if (existingTag.textContent !== showText) existingTag.textContent = showText;
+                return;
             }
 
             // 新しいタグを追加
@@ -144,15 +139,20 @@ function observeDialogAppearance() {
             p.style.borderRadius = '5px';
             taskDialog.appendChild(p);
         } catch (error) {
-            // console.error('Error processing time records:', error);
+            console.warn('Chrome Freee Time: 勤怠時間を取得できませんでした。', error);
         }
     }
 
     // DOM変更の監視を開始
     observer.observe(document.body, {
         childList: true,
-        subtree: true
+        subtree: true,
+        characterData: true
     });
+    document.addEventListener('input', scheduleUpdate);
+    document.addEventListener('change', scheduleUpdate);
+    // 拡張機能の起動前に開かれていたダイアログも処理する。
+    scheduleUpdate();
 }
 
 // ページ読み込み時に監視を開始

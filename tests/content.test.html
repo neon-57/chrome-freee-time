@@ -1,0 +1,155 @@
+<!doctype html>
+<html lang="ja">
+<meta charset="utf-8">
+<title>Chrome Freee Time 回帰テスト</title>
+<h1>Chrome Freee Time 回帰テスト</h1>
+<pre id="results">実行中…</pre>
+<div id="fixture"></div>
+<script type="module">
+const results = document.querySelector('#results');
+const fixture = document.querySelector('#fixture');
+const wait = () => new Promise(resolve => setTimeout(resolve, 500));
+const lines = [];
+let frame;
+let doc;
+
+function row(type, time, index) {
+    return `<tr class="vb-tableListRow"><td><span class="vb-tableListCell__text"> ${type} </span></td>
+        <td><span class="vb-tableListCell__text">${time}</span></td>
+        <td><span class="vb-tableListCell__text"><input name="time_clocks[${index}].datetime" value="${time}"></span></td>
+        <td><span class="vb-tableListCell__text"><input name="time_clocks[${index}].note" value="理由"></span></td></tr>`;
+}
+
+function table(records) {
+    return `<table role="grid"><tbody>${records.map(([type, time], index) => row(type, time, index)).join('')}</tbody></table>`;
+}
+
+function dialog(records, modern = true) {
+    const attrs = name => modern
+        ? `class="_${name}_hash_1" data-deprecated-class="${name}"`
+        : `class="${name}"`;
+    return `<div ${attrs('vb-dialogBase')}><h1>打刻修正</h1><div ${attrs('vb-taskDialog__body')}>${table(records)}</div></div>`;
+}
+
+async function mount(html) {
+    fixture.replaceChildren();
+    frame = document.createElement('iframe');
+    frame.width = '650';
+    frame.height = '350';
+    const loaded = new Promise(resolve => frame.onload = resolve);
+    // 時刻を固定して、勤務中・休憩中の計算を再現可能にする。
+    frame.srcdoc = `<!doctype html><html><body>${html}<script>
+        const RealDate = Date;
+        window.Date = class extends RealDate {
+            constructor(...args) { super(...(args.length ? args : ['2026-10-20T18:00:00'])); }
+        };
+        <\/script><script src="../src/content.js"><\/script></body></html>`;
+    fixture.append(frame);
+    await loaded;
+    doc = frame.contentDocument;
+    await wait();
+}
+
+function expect(text) {
+    const tags = doc.querySelectorAll('.time-display-tag');
+    if (tags.length !== 1 || !tags[0].textContent.includes(text)) {
+        throw new Error(`期待値: ${text}\n実際: ${Array.from(tags, tag => tag.textContent).join('\n')}`);
+    }
+}
+
+function absent() {
+    if (doc.querySelector('.time-display-tag')) throw new Error('集計が残っています');
+}
+
+async function test(name, run) {
+    try {
+        await run();
+        lines.push(`PASS ${name}`);
+    } catch (error) {
+        lines.push(`FAIL ${name}: ${error.message}`);
+    }
+    results.textContent = lines.join('\n');
+}
+
+const records = [['出勤', '09:00'], ['休憩開始', '12:02'], ['休憩終了', '12:58'], ['退勤', '18:00']];
+
+await test('新DOM・起動時に開いているダイアログ・休憩の5分丸め', async () => {
+    await mount(dialog(records));
+    expect('総勤務時間: 09:00');
+    expect('休憩時間: 01:00');
+    expect('実労働時間: 08:00');
+    expect('退勤: 18:00');
+});
+await test('旧DOMとの互換性', async () => {
+    await mount(dialog(records, false));
+    expect('実労働時間: 08:00');
+});
+await test('ダイアログ外の打刻表を集計しない', async () => {
+    await mount(dialog(records) + table([['出勤', '01:00']]));
+    expect('総勤務時間: 09:00');
+});
+await test('ダイアログ表示後の遅延読み込み', async () => {
+    await mount(dialog([]));
+    absent();
+    doc.querySelector('tbody').innerHTML = row('出勤', '09:00', 0);
+    await wait();
+    expect('実労働時間: 09:00');
+});
+await test('時刻の入力で再計算する', async () => {
+    const input = doc.querySelector('input');
+    input.value = '10:00';
+    input.dispatchEvent(new frame.contentWindow.Event('input', { bubbles: true }));
+    await wait();
+    expect('総勤務時間: 08:00');
+});
+await test('同じダイアログ内で別の打刻記録に切り替える', async () => {
+    doc.querySelector('tbody').innerHTML = [['出勤', '08:00'], ['退勤', '17:00']].map(([type, time], index) => row(type, time, index)).join('');
+    await wait();
+    expect('総勤務時間: 09:00');
+    expect('退勤: 17:00');
+});
+await test('出勤記録がなくなると古い集計を消す', async () => {
+    doc.querySelector('tbody').replaceChildren();
+    await wait();
+    absent();
+});
+await test('閉じて開き直した場合も集計する', async () => {
+    doc.querySelector('[data-deprecated-class="vb-dialogBase"]').remove();
+    await wait();
+    doc.body.insertAdjacentHTML('beforeend', dialog([['出勤', '10:00']]));
+    await wait();
+    expect('実労働時間: 08:00');
+});
+await test('編集途中の不正な時刻を集計しない', async () => {
+    const input = doc.querySelector('input');
+    input.value = '10:';
+    input.dispatchEvent(new frame.contentWindow.Event('input', { bubbles: true }));
+    await wait();
+    absent();
+});
+await test('複数の休憩・休憩中の現在時刻による計算', async () => {
+    await mount(dialog([['出勤', '09:00'], ['休憩開始', '12:02'], ['休憩終了', '12:58'], ['休憩開始', '17:31']]));
+    expect('総勤務時間: 09:00');
+    expect('休憩時間: 01:30');
+    expect('実労働時間: 07:30');
+});
+await test('表示の重複・自身の更新による監視ループがない', async () => {
+    let mutations = 0;
+    const observer = new frame.contentWindow.MutationObserver(changes => mutations += changes.length);
+    observer.observe(doc.body, { childList: true, subtree: true, characterData: true });
+    await wait();
+    observer.disconnect();
+    expect('実労働時間: 07:30');
+    if (mutations !== 0) throw new Error(`${mutations}件の不要な更新`);
+});
+await test('休憩時刻の消去中に誤った集計を表示しない', async () => {
+    const input = doc.querySelector('input[name="time_clocks[1].datetime"]');
+    input.value = '';
+    input.dispatchEvent(new frame.contentWindow.Event('input', { bubbles: true }));
+    await wait();
+    absent();
+});
+document.title = lines.some(line => line.startsWith('FAIL')) ? 'FAIL: 回帰テスト' : `PASS: ${lines.length}件`;
+results.textContent += `\n\n${document.title}`;
+</script>
+</html>
